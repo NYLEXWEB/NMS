@@ -1,94 +1,52 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useEffect, useState, use } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
     ArrowLeft,
-    Download,
     Printer,
+    Download,
+    Mail,
     CheckCircle,
-    Clock,
-    Trash2,
     Building,
+    User,
     Calendar,
-    CreditCard,
+    IndianRupee,
     RefreshCw,
+    Send,
 } from 'lucide-react';
-import { StatusBadge } from '@/components/ui/StatusBadge';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { PDFDownloadLink } from '@react-pdf/renderer';
-import { InvoicePdfDocument } from '@/components/invoices/InvoicePdfDocument';
 
-export default function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
+export default function InvoiceDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+    const resolvedParams = use(params);
+    const invoiceId = resolvedParams.id;
     const router = useRouter();
 
     const [invoice, setInvoice] = useState<any>(null);
-    const [settings, setSettings] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
-        setIsClient(true);
-        async function loadData() {
+        async function fetchInvoice() {
             try {
-                const [iRes, sRes] = await Promise.all([
-                    fetch(`/api/invoices/${id}`),
-                    fetch('/api/settings'),
-                ]);
-
-                const iJson = await iRes.json();
-                const sJson = await sRes.json();
-
-                if (iJson.success) setInvoice(iJson.data);
-                if (sJson.success) setSettings(sJson.data);
+                const res = await fetch(`/api/invoices/${invoiceId}`);
+                const json = await res.json();
+                if (json.success) {
+                    setInvoice(json.data);
+                } else {
+                    toast.error(json.error || 'Failed to load invoice');
+                }
             } catch (err) {
-                toast.error('Failed to load invoice details');
+                toast.error('Error fetching invoice details');
             } finally {
                 setLoading(false);
             }
         }
-        loadData();
-    }, [id]);
-
-    const handleToggleStatus = async () => {
-        const newStatus = invoice.status === 'Paid' ? 'Unpaid' : 'Paid';
-        try {
-            const res = await fetch(`/api/invoices/${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus }),
-            });
-            const json = await res.json();
-            if (json.success) {
-                toast.success(`Invoice marked as ${newStatus}`);
-                setInvoice(json.data);
-            } else {
-                toast.error(json.error || 'Failed to update invoice');
-            }
-        } catch (err) {
-            toast.error('Error updating status');
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!confirm(`Are you sure you want to delete invoice '${invoice?.invoiceNumber}'?`)) return;
-
-        try {
-            const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
-            const json = await res.json();
-            if (json.success) {
-                toast.success('Invoice deleted');
-                router.push('/invoices');
-            } else {
-                toast.error(json.error || 'Failed to delete invoice');
-            }
-        } catch (err) {
-            toast.error('Error deleting invoice');
-        }
-    };
+        fetchInvoice();
+    }, [invoiceId]);
 
     const handlePrint = () => {
         window.print();
@@ -98,150 +56,125 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500">
                 <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mb-2" />
-                <p className="text-sm">Loading invoice PDF preview...</p>
+                <p className="text-sm font-semibold">Loading Invoice Document...</p>
             </div>
         );
     }
 
     if (!invoice) {
         return (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Invoice Not Found</h3>
-                <button
-                    onClick={() => router.push('/invoices')}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg"
+            <div className="p-8 text-center bg-white rounded-2xl border border-slate-200/80 shadow-xs">
+                <h3 className="text-lg font-bold text-slate-900">Invoice Not Found</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                    The requested invoice ID does not exist or has been deleted.
+                </p>
+                <Link
+                    href="/invoices"
+                    className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold"
                 >
-                    Return to Invoice History
-                </button>
+                    Back to Invoices
+                </Link>
             </div>
         );
     }
 
     const client = invoice.clientId || {};
-    const company = settings || {
-        companyName: 'NYLEX',
-        businessName: 'NYLEXWEB',
+    const company = {
+        name: 'NYLEXWEB',
+        fullName: 'NYLEX Web Design & Development',
         phone: '+91 89214 42748',
         email: 'buildwithnylex@gmail.com',
-        website: 'https://nylexweb.com',
         address: 'Kerala, India',
     };
 
     return (
         <div className="space-y-6 max-w-4xl mx-auto">
-            {/* Top Header Actions (Hidden when printing) */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 print:hidden">
+            {/* Top Action Bar (Hidden during Print) */}
+            <div className="print:hidden flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4.5 rounded-2xl border border-slate-200/80 shadow-xs">
                 <button
-                    onClick={() => router.push('/invoices')}
-                    className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                    onClick={() => router.back()}
+                    className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors"
                 >
                     <ArrowLeft className="w-4 h-4" /> Back to Invoices
                 </button>
 
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={handleToggleStatus}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${invoice.status === 'Paid'
-                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                            }`}
-                    >
-                        Mark as {invoice.status === 'Paid' ? 'Unpaid' : 'Paid'}
-                    </button>
-
-                    <button
                         onClick={handlePrint}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold hover:bg-slate-200"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors"
                     >
-                        <Printer className="w-3.5 h-3.5" /> Print
+                        <Printer className="w-4 h-4" /> Print / Save PDF
                     </button>
-
-                    {isClient && (
-                        <PDFDownloadLink
-                            document={<InvoicePdfDocument invoice={invoice} settings={settings} />}
-                            fileName={`${invoice.invoiceNumber}.pdf`}
-                            className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+                    {client.email && (
+                        <a
+                            href={`mailto:${client.email}?subject=Invoice%20${invoice.invoiceNumber}%20from%20NYLEX&body=Dear%20${encodeURIComponent(
+                                client.clientName
+                            )},%0A%0APlease%20find%20attached%20invoice%20${invoice.invoiceNumber
+                                }%20for%20total%20amount%20Rs.%20${invoice.total}.`}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
-                            {({ loading }) =>
-                                loading ? (
-                                    'Generating PDF...'
-                                ) : (
-                                    <>
-                                        <Download className="w-3.5 h-3.5" /> Download PDF
-                                    </>
-                                )
-                            }
-                        </PDFDownloadLink>
+                            <Send className="w-4 h-4" /> Email Client
+                        </a>
                     )}
-
-                    <button
-                        onClick={handleDelete}
-                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
-                        title="Delete Invoice"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
                 </div>
             </div>
 
-            {/* Invoice Document Preview Card */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 sm:p-12 shadow-sm text-slate-900 dark:text-slate-100 space-y-8 font-sans">
-                {/* Document Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start border-b border-slate-200 dark:border-slate-800 pb-6 gap-4">
+            {/* Printable Invoice Card */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-8 sm:p-12 shadow-xs text-slate-900 space-y-8 font-sans">
+                {/* Invoice Header */}
+                <div className="flex flex-col sm:flex-row justify-between items-start border-b border-slate-100 pb-6 gap-4">
                     <div>
-                        <h1 className="text-3xl font-black tracking-tight text-blue-600 uppercase">
-                            {company.companyName}
+                        <h1 className="text-2xl font-black text-blue-600 tracking-tight">
+                            {company.name}
                         </h1>
-                        <p className="text-xs text-slate-500 font-medium">Web Design & Development</p>
-                        <p className="text-xs text-slate-500 mt-2">{company.phone}</p>
-                        <p className="text-xs text-slate-500">{company.email}</p>
-                        <p className="text-xs text-slate-500">{company.website}</p>
+                        <p className="text-xs text-slate-500 font-medium">{company.fullName}</p>
+                        <p className="text-xs text-slate-500 font-medium mt-1">Phone: {company.phone}</p>
+                        <p className="text-xs text-slate-500 font-medium">Email: {company.email}</p>
                     </div>
 
-                    <div className="text-left sm:text-right space-y-1">
-                        <h2 className="text-xl font-bold tracking-wider text-slate-900 dark:text-white">
+                    <div className="text-left sm:text-right">
+                        <h2 className="text-xl font-extrabold tracking-wider text-slate-900">
                             INVOICE
                         </h2>
-                        <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                        <p className="text-xs font-bold text-slate-600 mt-0.5">
                             #{invoice.invoiceNumber}
                         </p>
-                        <p className="text-xs text-slate-500">
-                            Date: {format(new Date(invoice.invoiceDate), 'dd MMMM yyyy')}
-                        </p>
-                        <div className="pt-2">
-                            <StatusBadge status={invoice.status} />
-                            <span className="ml-2 inline-block px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-bold text-[10px] rounded-md">
+                        <div className="mt-2 text-xs">
+                            <span className="text-slate-400">Date: </span>
+                            <span className="font-bold">
+                                {format(new Date(invoice.invoiceDate), 'dd MMMM yyyy')}
+                            </span>
+                        </div>
+                        <div className="mt-1 text-xs">
+                            <span className="text-slate-400">Type: </span>
+                            <span className="inline-block px-2.5 py-0.5 bg-blue-50 text-blue-700 font-bold text-[10px] rounded-lg">
                                 {invoice.paymentType}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Address Blocks */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-xs">
+                {/* Billed From & Billed To */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-xs border-b border-slate-100 pb-6">
                     <div>
-                        <span className="uppercase font-bold text-slate-400 text-[10px] tracking-wider block mb-1">
+                        <span className="font-bold text-slate-400 uppercase tracking-wider block mb-2">
                             Billed From
                         </span>
-                        <p className="font-extrabold text-slate-900 dark:text-white text-sm">
-                            {company.businessName}
-                        </p>
-                        <p className="text-slate-600 dark:text-slate-400 mt-1">{company.address}</p>
-                        <p className="text-slate-500">Phone: {company.phone}</p>
-                        <p className="text-slate-500">Email: {company.email}</p>
+                        <p className="font-extrabold text-slate-900 text-sm">{company.name}</p>
+                        <p className="text-slate-600 font-medium mt-0.5">{company.fullName}</p>
+                        <p className="text-slate-500 mt-1">{company.address}</p>
                     </div>
 
                     <div>
-                        <span className="uppercase font-bold text-slate-400 text-[10px] tracking-wider block mb-1">
-                            Billed To
+                        <span className="font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                            Billed To (Client)
                         </span>
-                        <p className="font-extrabold text-slate-900 dark:text-white text-sm">
-                            {client.clientName || 'Valued Client'}
+                        <p className="font-extrabold text-slate-900 text-sm">
+                            {client.clientName || 'N/A'}
                         </p>
-                        <p className="text-slate-700 dark:text-slate-300 font-semibold">{client.businessName}</p>
-                        {client.location && <p className="text-slate-500">{client.location}</p>}
-                        <p className="text-slate-500">Phone: {client.phone}</p>
-                        {client.email && <p className="text-slate-500">Email: {client.email}</p>}
+                        <p className="text-slate-700 font-semibold mt-0.5">{client.businessName}</p>
+                        <p className="text-slate-500 mt-1">{client.phone}</p>
+                        <p className="text-slate-500">{client.email}</p>
                     </div>
                 </div>
 
@@ -249,24 +182,26 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
                         <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-800 border-y border-slate-200 dark:border-slate-800 font-bold text-slate-500 uppercase">
-                                <th className="py-3 px-4">Item Description</th>
+                            <tr className="bg-slate-50 border-y border-slate-200/80 font-bold text-slate-500 uppercase">
+                                <th className="py-3 px-4">Item & Description</th>
                                 <th className="py-3 px-4 text-center">Qty</th>
                                 <th className="py-3 px-4 text-right">Rate</th>
                                 <th className="py-3 px-4 text-right">Amount</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        <tbody className="divide-y divide-slate-100">
                             {invoice.items?.map((item: any, idx: number) => (
                                 <tr key={idx}>
-                                    <td className="py-3.5 px-4 font-semibold text-slate-800 dark:text-slate-200">
+                                    <td className="py-3.5 px-4 font-semibold text-slate-800">
                                         {item.description}
                                     </td>
-                                    <td className="py-3.5 px-4 text-center font-medium">{item.quantity}</td>
-                                    <td className="py-3.5 px-4 text-right text-slate-600 dark:text-slate-400">
+                                    <td className="py-3.5 px-4 text-center text-slate-600 font-medium">
+                                        {item.quantity}
+                                    </td>
+                                    <td className="py-3.5 px-4 text-right text-slate-600 font-medium">
                                         ₹{item.rate?.toLocaleString('en-IN')}
                                     </td>
-                                    <td className="py-3.5 px-4 text-right font-bold text-slate-900 dark:text-white">
+                                    <td className="py-3.5 px-4 text-right font-bold text-slate-900">
                                         ₹{item.amount?.toLocaleString('en-IN')}
                                     </td>
                                 </tr>
@@ -275,55 +210,55 @@ export default function InvoiceDetailPage({ params }: { params: Promise<{ id: st
                     </table>
                 </div>
 
-                {/* Financial Summary */}
-                <div className="flex justify-end pt-4">
-                    <div className="w-full sm:w-72 space-y-2 text-xs">
-                        <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                {/* Totals Summary */}
+                <div className="flex flex-col items-end space-y-2 text-xs pt-2">
+                    <div className="w-full sm:w-72 space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <div className="flex items-center justify-between text-slate-600 font-medium">
                             <span>Subtotal:</span>
-                            <span className="font-semibold text-slate-900 dark:text-white">
+                            <span className="font-bold text-slate-900">
                                 ₹{invoice.subtotal?.toLocaleString('en-IN')}
                             </span>
                         </div>
 
                         {invoice.gst > 0 && (
-                            <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                            <div className="flex items-center justify-between text-slate-600 font-medium">
                                 <span>GST:</span>
-                                <span>+ ₹{invoice.gst?.toLocaleString('en-IN')}</span>
+                                <span>+₹{invoice.gst?.toLocaleString('en-IN')}</span>
                             </div>
                         )}
 
                         {invoice.discount > 0 && (
-                            <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                            <div className="flex items-center justify-between text-emerald-600 font-semibold">
                                 <span>Discount:</span>
-                                <span>- ₹{invoice.discount?.toLocaleString('en-IN')}</span>
+                                <span>-₹{invoice.discount?.toLocaleString('en-IN')}</span>
                             </div>
                         )}
 
-                        <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800 text-base font-extrabold text-blue-600 dark:text-blue-400">
-                            <span>Total Amount:</span>
+                        <div className="flex items-center justify-between pt-3 border-t border-slate-200/80 text-base font-extrabold text-blue-600">
+                            <span>Total Due:</span>
                             <span>₹{invoice.total?.toLocaleString('en-IN')}</span>
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                            <span>Payment Method:</span>
-                            <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                {invoice.paymentMethod}
-                            </span>
+                        <div className="flex items-center justify-between pt-1 text-[11px]">
+                            <span className="text-slate-400 font-medium">Payment Mode:</span>
+                            <span className="font-bold text-slate-700">{invoice.paymentMethod}</span>
                         </div>
                     </div>
                 </div>
 
-                {/* Notes & Terms */}
+                {/* Notes */}
                 {invoice.notes && (
-                    <div className="pt-6 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500">
-                        <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Notes</span>
-                        <p>{invoice.notes}</p>
+                    <div className="pt-6 border-t border-slate-100 text-xs text-slate-500">
+                        <span className="font-bold text-slate-700 block mb-1">Notes / Terms:</span>
+                        <p className="bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium leading-relaxed">
+                            {invoice.notes}
+                        </p>
                     </div>
                 )}
 
-                {/* Computer generated footer */}
-                <div className="text-center pt-8 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400">
-                    Thank you for choosing NYLEX. We sincerely appreciate your trust!
+                {/* Footer */}
+                <div className="text-center pt-8 border-t border-slate-100 text-[10px] text-slate-400 font-semibold">
+                    Thank you for choosing NYLEX. Computer generated official invoice document.
                 </div>
             </div>
         </div>
