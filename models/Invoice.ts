@@ -11,7 +11,7 @@ export interface IInvoice extends Document {
     invoiceNumber: string;
     clientId: mongoose.Types.ObjectId;
     projectId?: mongoose.Types.ObjectId;
-    paymentType: 'Advance Payment' | 'Balance Payment' | 'Complete Payment';
+    paymentType: 'Advance' | 'Balance' | 'Complete' | 'Advance Payment' | 'Balance Payment' | 'Complete Payment' | 'Other' | string;
     invoiceDate: Date;
     paymentMethod: 'UPI' | 'Bank Transfer' | 'Cash' | 'Other';
     items: IInvoiceItem[];
@@ -19,7 +19,7 @@ export interface IInvoice extends Document {
     gst: number;
     discount: number;
     total: number;
-    status: 'Paid' | 'Sent' | 'Draft';
+    status: 'Paid' | 'Unpaid' | 'Sent' | 'Draft';
     notes?: string;
     createdAt: Date;
     updatedAt: Date;
@@ -39,7 +39,7 @@ const InvoiceSchema = new Schema<IInvoice>(
         projectId: { type: Schema.Types.ObjectId, ref: 'Project', index: true },
         paymentType: {
             type: String,
-            enum: ['Advance Payment', 'Balance Payment', 'Complete Payment'],
+            enum: ['Advance', 'Balance', 'Complete', 'Advance Payment', 'Balance Payment', 'Complete Payment', 'Other'],
             required: true,
         },
         invoiceDate: { type: Date, default: Date.now },
@@ -55,7 +55,7 @@ const InvoiceSchema = new Schema<IInvoice>(
         total: { type: Number, required: true, default: 0 },
         status: {
             type: String,
-            enum: ['Paid', 'Sent', 'Draft'],
+            enum: ['Paid', 'Unpaid', 'Sent', 'Draft'],
             default: 'Paid',
         },
         notes: { type: String },
